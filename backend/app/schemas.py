@@ -57,6 +57,12 @@ class HistoryPoint(BaseModel):
     close: float
 
 
+class SignalStatus(BaseModel):
+    label: str
+    fired: bool
+    detail: str  # e.g. "moved 1.3x its typical daily range — below the 2.0x mark"
+
+
 class InstrumentDetail(BaseModel):
     symbol: str
     name: str | None
@@ -70,3 +76,6 @@ class InstrumentDetail(BaseModel):
     reasons: list[str]
     flagged_on: date | None
     since_last_seen_pct: float | None
+    # Per-signal status for the latest bar — explains a non-flag as much as a flag.
+    breakdown: list[SignalStatus]
+    verdict: str

@@ -66,7 +66,17 @@ export default function StockDetail() {
                 </ul>
               </div>
             ) : (
-              <p className="detail-quiet">No unusual activity right now.</p>
+              <div className="breakdown">
+                <div className="breakdown-verdict">{data.verdict}</div>
+                <ul className="breakdown-list">
+                  {data.breakdown.map((b, i) => (
+                    <li key={i} className={b.fired ? "bd-fired" : ""}>
+                      <span className="bd-label">{b.label}</span>
+                      <span className="bd-detail">{b.detail}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             {pct != null && (

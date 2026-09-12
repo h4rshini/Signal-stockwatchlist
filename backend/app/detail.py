@@ -6,12 +6,30 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .deps import get_current_user, get_db
+from .engine import evaluate, index_return_for
 from .models import ChangeEvent, Instrument, Observation, User
-from .schemas import HistoryPoint, InstrumentDetail
+from .schemas import HistoryPoint, InstrumentDetail, SignalStatus
 
 router = APIRouter(tags=["detail"])
 
 HISTORY_BARS = 60
+
+SIGNAL_LABELS = {"price_move": "Price", "volume": "Volume", "index_relative": "Vs. market"}
+
+
+def _describe(s) -> SignalStatus:
+    label = SIGNAL_LABELS.get(s.name, s.name)
+    if not s.fired and s.value == 0:
+        note = "no market data to compare" if s.name == "index_relative" else "not enough data yet"
+        return SignalStatus(label=label, fired=False, detail=note)
+    if s.name == "price_move":
+        base = f"moved {s.value:.1f}x its typical daily range"
+    elif s.name == "volume":
+        base = f"was {s.value:.1f}x its recent average"
+    else:
+        base = f"moved {s.value:.1f}x its typical range vs the market"
+    tail = "active" if s.fired else f"below the {s.threshold:.1f}x mark"
+    return SignalStatus(label=label, fired=s.fired, detail=f"{base} — {tail}")
 
 
 @router.get("/instrument/{symbol}", response_model=InstrumentDetail)
@@ -54,6 +72,21 @@ def instrument_detail(symbol: str, user: User = Depends(get_current_user), db: S
         if base and base.close:
             since = round((latest.close - base.close) / base.close * 100, 1)
 
+    # Live per-signal breakdown for the latest bar — reuses the engine, reads
+    # stored bars only (no provider call), and explains a non-flag too.
+    recent = obs[-settings.baseline_bars:]
+    index_return = None
+    if latest and inst.symbol != settings.index_symbol:
+        index_return = index_return_for(db, latest.bar_date)
+    result = evaluate([o.close for o in recent], [o.volume for o in recent], index_return)
+    breakdown = [_describe(s) for s in result.signals]
+    active = sum(1 for s in result.signals if s.fired)
+    verdict = (
+        f"{active} of 3 signals active — flagged ({result.confidence} confidence)"
+        if result.flagged
+        else f"{active} of 3 signals active — not flagged (needs 2)"
+    )
+
     return InstrumentDetail(
         symbol=inst.symbol,
         name=inst.name,
@@ -67,4 +100,6 @@ def instrument_detail(symbol: str, user: User = Depends(get_current_user), db: S
         reasons=event.reasons if event else [],
         flagged_on=event.window_end if event else None,
         since_last_seen_pct=since,
+        breakdown=breakdown,
+        verdict=verdict,
     )

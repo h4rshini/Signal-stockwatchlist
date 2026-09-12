@@ -725,6 +725,55 @@ input {
   color: var(--muted);
   font-size: 16px;
 }
+
+.breakdown-verdict {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.breakdown-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.breakdown-list li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding-left: 15px;
+}
+.breakdown-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.breakdown-list li.bd-fired::before {
+  background: var(--medium);
+  box-shadow: 0 0 6px var(--medium);
+}
+.bd-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.bd-fired .bd-label {
+  color: var(--medium);
+}
+.bd-detail {
+  font-size: 14.5px;
+  color: var(--ink);
+}
 .detail-context {
   margin-top: 18px;
   color: var(--faint);

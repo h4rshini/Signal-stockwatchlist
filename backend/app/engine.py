@@ -42,7 +42,7 @@ def evaluate(closes: list[float], volumes: list[int], index_return: float | None
     return EngineResult(True, confidence, score, reasons, signals)
 
 
-def _index_return_for(session: Session, on_date) -> float | None:
+def index_return_for(session: Session, on_date) -> float | None:
     idx = session.scalar(select(Instrument).where(Instrument.symbol == settings.index_symbol))
     if idx is None:
         return None
@@ -82,7 +82,7 @@ def evaluate_instrument(session: Session, instrument: Instrument) -> ChangeEvent
 
     index_return = None
     if instrument.symbol != settings.index_symbol:
-        index_return = _index_return_for(session, latest_date)
+        index_return = index_return_for(session, latest_date)
     result = evaluate([b.close for b in bars], [b.volume for b in bars], index_return)
     if not result.flagged:
         return None
