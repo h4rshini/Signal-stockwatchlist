@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "../api";
 import { useDetail } from "../detail";
+import { formatPct, formatPrice, relativeTime } from "../lib/format";
 import DetailChart from "./DetailChart";
 import SignalMeter from "./SignalMeter";
 
@@ -28,7 +29,7 @@ export default function StockDetail() {
           ×
         </button>
 
-        {error && <div className="state">Couldn't load {symbol}: {error}</div>}
+        {error && <div className="state">Couldn’t load {symbol}: {error}</div>}
         {!data && !error && <div className="state">Loading…</div>}
 
         {data && (
@@ -36,20 +37,20 @@ export default function StockDetail() {
             <div className="detail-head">
               <div className="detail-id">
                 <span className="detail-symbol mono">{data.symbol}</span>
-                {data.flagged && <span className="wl-badge">signal</span>}
+                {data.flagged && <span className={`conf-badge ${data.confidence}`}>{data.confidence}</span>}
               </div>
               <div className="detail-price">
-                {data.latest_close != null && (
-                  <span className="mono">${data.latest_close.toFixed(2)}</span>
-                )}
+                {data.latest_close != null && <span>{formatPrice(data.latest_close)}</span>}
                 {data.change_pct != null && (
                   <span className={data.change_pct >= 0 ? "pct-up" : "pct-down"}>
-                    {data.change_pct >= 0 ? "+" : ""}
-                    {data.change_pct}%
+                    {formatPct(data.change_pct, 2)}
                   </span>
                 )}
               </div>
             </div>
+            {data.latest_date && (
+              <div className="detail-meta">as of {relativeTime(data.latest_date)}</div>
+            )}
 
             <DetailChart history={data.history} />
 
@@ -57,7 +58,9 @@ export default function StockDetail() {
               <div className={`detail-signals ${data.confidence}`}>
                 <div className="detail-signals-head">
                   <SignalMeter confidence={data.confidence} />
-                  <span className="confidence-label">{data.confidence} confidence</span>
+                  <span className="confidence-label">
+                    {data.confidence} confidence · flagged {relativeTime(data.flagged_on)}
+                  </span>
                 </div>
                 <ul className="reasons">
                   {data.reasons.map((r, i) => (
@@ -81,11 +84,8 @@ export default function StockDetail() {
 
             {pct != null && (
               <p className="detail-context">
-                <span className={pct >= 0 ? "pct-up" : "pct-down"}>
-                  {pct >= 0 ? "+" : ""}
-                  {pct}%
-                </span>{" "}
-                since you last looked
+                <span className={pct >= 0 ? "pct-up" : "pct-down"}>{formatPct(pct, 1)}</span> since you
+                last looked — context only, not a signal.
               </p>
             )}
           </>

@@ -34,7 +34,7 @@ function Shell() {
             </button>
           </nav>
           <div className="spacer" />
-          <span className="muted">{user.email}</span>
+          <span className="email">{user.email}</span>
           <button className="link" onClick={logout}>
             Log out
           </button>

@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 import { api, getToken, setToken } from "./api";
+import { loadCache, saveCache } from "./lib/format";
 
 const AuthContext = createContext(null);
+const USER_KEY = "signal_user";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -13,17 +15,31 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
-    // Validate the stored token by fetching the user; drop it if it's stale.
     api.me()
-      .then(setUser)
-      .catch(() => setToken(null))
+      .then((u) => {
+        setUser(u);
+        saveCache(USER_KEY, u);
+      })
+      .catch((e) => {
+        if (e.status === 401) {
+          // The token is genuinely invalid — drop it.
+          setToken(null);
+        } else {
+          // Backend unreachable, not a bad token: keep the session from cache
+          // so the app degrades to last-known data instead of a login wall.
+          const cached = loadCache(USER_KEY);
+          if (cached) setUser(cached.val);
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
   async function authenticate(fn, email, password) {
     const { access_token } = await fn(email, password);
     setToken(access_token);
-    setUser(await api.me());
+    const u = await api.me();
+    setUser(u);
+    saveCache(USER_KEY, u);
   }
 
   const value = {

@@ -27,13 +27,15 @@ def _recent(db: Session, instrument_id: int, n: int) -> list[Observation]:
     return list(reversed(obs))
 
 
-def _is_flagged(db: Session, instrument_id: int) -> bool:
+def _flag_confidence(db: Session, instrument_id: int) -> str | None:
+    """Confidence of the most recent flag within the window, or None if unflagged."""
     cutoff = date.today() - timedelta(days=settings.lookback_cap_days)
     return db.scalar(
-        select(ChangeEvent.id)
+        select(ChangeEvent.confidence)
         .where(ChangeEvent.instrument_id == instrument_id, ChangeEvent.window_end >= cutoff)
+        .order_by(ChangeEvent.window_end.desc())
         .limit(1)
-    ) is not None
+    )
 
 
 def _to_out(db: Session, inst: Instrument, item: WatchlistItem) -> WatchlistItemOut:
@@ -45,6 +47,7 @@ def _to_out(db: Session, inst: Instrument, item: WatchlistItem) -> WatchlistItem
     if latest and prev and prev.close:
         change_pct = round((latest.close - prev.close) / prev.close * 100, 2)
 
+    confidence = _flag_confidence(db, inst.id)
     return WatchlistItemOut(
         symbol=inst.symbol,
         name=inst.name,
@@ -53,7 +56,8 @@ def _to_out(db: Session, inst: Instrument, item: WatchlistItem) -> WatchlistItem
         latest_date=latest.bar_date if latest else None,
         change_pct=change_pct,
         spark=[o.close for o in obs[-SPARK_BARS:]],
-        flagged=_is_flagged(db, inst.id),
+        flagged=confidence is not None,
+        confidence=confidence,
     )
 
 

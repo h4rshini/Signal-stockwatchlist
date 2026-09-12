@@ -1,4 +1,4 @@
-export default function Sparkline({ data, width = 120, height = 30 }) {
+export default function Sparkline({ data, up, width = 120, height = 30 }) {
   if (!data || data.length < 2) return <span className="spark-empty" style={{ width }} />;
 
   const min = Math.min(...data);
@@ -8,11 +8,13 @@ export default function Sparkline({ data, width = 120, height = 30 }) {
   const points = data
     .map((v, i) => `${(i * step).toFixed(1)},${(height - ((v - min) / range) * height).toFixed(1)}`)
     .join(" ");
-  const up = data[data.length - 1] >= data[0];
+  // Color by the caller's sign (the daily % change) when given, so the line
+  // matches the change shown beside it; else fall back to the window's trend.
+  const rising = up != null ? up : data[data.length - 1] >= data[0];
 
   return (
     <svg className="spark" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <polyline points={points} className={up ? "spark-up" : "spark-down"} />
+      <polyline points={points} className={rising ? "spark-up" : "spark-down"} />
     </svg>
   );
 }

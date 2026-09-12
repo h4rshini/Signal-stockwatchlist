@@ -22,7 +22,9 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
     } catch {
       // non-JSON error body; keep the status text
     }
-    throw new Error(detail);
+    const err = new Error(detail);
+    err.status = res.status;  // lets callers tell a 401 from a network failure
+    throw err;
   }
   return res.status === 204 ? null : res.json();
 }

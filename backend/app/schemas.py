@@ -32,6 +32,7 @@ class WatchlistItemOut(BaseModel):
     change_pct: float | None       # latest close vs the prior day
     spark: list[float]             # recent closes, oldest first, for a sparkline
     flagged: bool                  # has a recent change event
+    confidence: str | None         # "high"|"medium" of the most recent flag, else None
 
 
 class FeedEntry(BaseModel):
