@@ -15,8 +15,14 @@ class FetchError(Exception):
     """The provider couldn't return usable bars (bad symbol, rate limit, downtime)."""
 
 
+# The app tracks US equities (daily bars are reliable on the free tier, and the
+# index signal compares against SPY), so suggestions are scoped to those.
+_SEARCH_TYPES = {"Common Stock", "ETF"}
+
+
 def search_symbols(query: str, limit: int = 8) -> list[dict]:
-    params = {"symbol": query, "outputsize": limit, "apikey": settings.twelvedata_api_key}
+    # Over-fetch, then filter to US common stocks/ETFs and take the top matches.
+    params = {"symbol": query, "outputsize": 40, "apikey": settings.twelvedata_api_key}
     try:
         resp = httpx.get(SEARCH_URL, params=params, timeout=10.0)
         resp.raise_for_status()
@@ -31,6 +37,10 @@ def search_symbols(query: str, limit: int = 8) -> list[dict]:
         symbol = d.get("symbol")
         if symbol in seen:  # same ticker often repeats across exchanges
             continue
+        if d.get("country") != "United States":
+            continue
+        if d.get("instrument_type") not in _SEARCH_TYPES:
+            continue
         seen.add(symbol)
         results.append({
             "symbol": symbol,
@@ -38,6 +48,8 @@ def search_symbols(query: str, limit: int = 8) -> list[dict]:
             "exchange": d.get("exchange"),
             "type": d.get("instrument_type"),
         })
+        if len(results) >= limit:
+            break
     return results
 
 
