@@ -8,11 +8,41 @@ from .config import settings
 from .deps import get_current_user, get_db
 from .engine import evaluate, index_return_for
 from .models import ChangeEvent, Instrument, Observation, User
-from .schemas import HistoryPoint, InstrumentDetail, SignalStatus
+from .schemas import BacktestMark, HistoryPoint, InstrumentDetail, SignalStatus
 
 router = APIRouter(tags=["detail"])
 
 HISTORY_BARS = 60
+
+
+def _index_returns(db: Session) -> dict:
+    """Map of date -> the market proxy's daily return, for replaying the backtest."""
+    idx = db.scalar(select(Instrument).where(Instrument.symbol == settings.index_symbol))
+    if idx is None:
+        return {}
+    bars = db.scalars(
+        select(Observation)
+        .where(Observation.instrument_id == idx.id)
+        .order_by(Observation.bar_date)
+    ).all()
+    returns = {}
+    for i in range(1, len(bars)):
+        if bars[i - 1].close:
+            returns[bars[i].bar_date] = (bars[i].close - bars[i - 1].close) / bars[i - 1].close
+    return returns
+
+
+def _backtest(obs: list[Observation], is_index: bool, index_returns: dict) -> list[BacktestMark]:
+    """Replay the engine day by day over the shown history; mark each day it fires."""
+    marks = []
+    need = settings.min_baseline_days + 2
+    for i in range(need - 1, len(obs)):
+        window = obs[max(0, i - settings.baseline_bars + 1): i + 1]
+        idx_ret = None if is_index else index_returns.get(obs[i].bar_date)
+        r = evaluate([o.close for o in window], [o.volume for o in window], idx_ret)
+        if r.flagged:
+            marks.append(BacktestMark(date=obs[i].bar_date, confidence=r.confidence))
+    return marks
 
 SIGNAL_LABELS = {"price_move": "Price", "volume": "Volume", "index_relative": "Vs. market"}
 
@@ -87,6 +117,9 @@ def instrument_detail(symbol: str, user: User = Depends(get_current_user), db: S
         else f"{active} of 3 signals active — not flagged (needs 2)"
     )
 
+    is_index = inst.symbol == settings.index_symbol
+    backtest = _backtest(obs, is_index, {} if is_index else _index_returns(db))
+
     return InstrumentDetail(
         symbol=inst.symbol,
         name=inst.name,
@@ -102,4 +135,5 @@ def instrument_detail(symbol: str, user: User = Depends(get_current_user), db: S
         since_last_seen_pct=since,
         breakdown=breakdown,
         verdict=verdict,
+        backtest=backtest,
     )

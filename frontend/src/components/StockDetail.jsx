@@ -52,7 +52,12 @@ export default function StockDetail() {
               <div className="detail-meta">as of {relativeTime(data.latest_date)}</div>
             )}
 
-            <DetailChart history={data.history} />
+            <DetailChart history={data.history} marks={data.backtest} />
+            <div className="chart-caption">
+              {data.backtest.length > 0
+                ? `${data.backtest.length} day${data.backtest.length > 1 ? "s" : ""} the engine would have flagged in this window`
+                : "No flags in this window — the engine stayed quiet"}
+            </div>
 
             {data.flagged ? (
               <div className={`detail-signals ${data.confidence}`}>

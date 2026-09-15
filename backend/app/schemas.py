@@ -64,6 +64,11 @@ class SignalStatus(BaseModel):
     detail: str  # e.g. "moved 1.3x its typical daily range — below the 2.0x mark"
 
 
+class BacktestMark(BaseModel):
+    date: date
+    confidence: str  # a day the engine would have flagged, replayed over history
+
+
 class InstrumentDetail(BaseModel):
     symbol: str
     name: str | None
@@ -80,3 +85,5 @@ class InstrumentDetail(BaseModel):
     # Per-signal status for the latest bar — explains a non-flag as much as a flag.
     breakdown: list[SignalStatus]
     verdict: str
+    # Days within the shown history where the engine would have flagged.
+    backtest: list[BacktestMark]
